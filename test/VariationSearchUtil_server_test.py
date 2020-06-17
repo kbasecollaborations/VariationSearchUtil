@@ -64,7 +64,7 @@ class VariationSearchUtilTest(unittest.TestCase):
         # Check returned data with
         # self.assertEqual(ret[...], ...) or other unittest methods
         params = {
-            "variation_ref": "42133/18/1",
+            "variation_ref": "51264/5/1",
             "locations": ["Chr01:52", "Chr01:100-500"],
             "samples":['93-968', 'OSU-418', 'BESC-52']
         }

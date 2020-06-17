@@ -2,7 +2,8 @@
 #BEGIN_HEADER
 import logging
 import subprocess
-
+import requests
+import json
 from VariationSearchUtil.Utils.vcf_parser import vcf_parser
 # from VariationSearchUtil.Utils.vcf_parser import vcf_parser
 from kbase_workspace_client import WorkspaceClient
@@ -36,25 +37,41 @@ class VariationSearchUtil:
         out, err = p.communicate()
         return out
 
-    def get_db_urls(self, var_obj):
-        vcf_node_url = "/".join([var_obj['vcf_handle']['url'],
-                                 "node",
+    def get_variation_service_url(self, sw_url):
+        '''
+        get the most recent VariationFileServ url from the service wizard.
+        sw_url: service wizard url
+        '''
+        # TODO Fix the following dev thing to beta or release or future
+        json_obj = {
+            "method": "ServiceWizard.get_service_status",
+            "id": "",
+            "params": [{"module_name": "VariationFileServ", "version": "dev"}]
+        }
+        sw_resp = requests.post(url=sw_url, data=json.dumps(json_obj))
+        vfs_resp = sw_resp.json()
+        self.shock_url = self.shock_url.replace("https://", "")
+        vfs_url = vfs_resp['result'][0]['url'] + "/jbrowse_query/" + self.shock_url + "/node"
+        return vfs_url
+
+
+    def get_db_urls(self, var_obj, vfs_url):
+       # vcf_node_url = "/".join([var_obj['vcf_handle']['url'],
+       #                          "node",
+       #                          var_obj['vcf_handle']['id']
+       #                          ])
+       # vcf_node_url = vcf_node_url.replace("https://", "")
+       # vcf_index_node_url = "/".join([var_obj['vcf_index_handle']['url'],
+       #                                "node",
+       #                                var_obj['vcf_index_handle']['id']
+       #                                ])
+       # vcf_index_node_url = vcf_index_node_url.replace("https://", "")
+
+        url_template = "/".join([vfs_url,
                                  var_obj['vcf_handle']['id']
                                  ])
-        vcf_node_url = vcf_node_url.replace("https://", "")
-        vcf_index_node_url = "/".join([var_obj['vcf_index_handle']['url'],
-                                       "node",
-                                       var_obj['vcf_index_handle']['id']
-                                       ])
-        vcf_index_node_url = vcf_index_node_url.replace("https://", "")
-
-        url_template = "/".join([self.service_url,
-                                 "jbrowse_query",
-                                 vcf_node_url
-                                 ])
-        tbi_url_template = "/".join([self.service_url,
-                                     "jbrowse_query",
-                                     vcf_index_node_url
+        tbi_url_template = "/".join([vfs_url,
+                                     var_obj['vcf_index_handle']['id']
                                      ])
         return url_template, tbi_url_template
 
@@ -148,9 +165,9 @@ class VariationSearchUtil:
                             level=logging.INFO)
         self.vp = vcf_parser()
         self.ws_url = config['workspace-url']
-        # TODO: User service-wizard-url to get the latest version of the VariationFileServ
-        self.service_url = "https://appdev.kbase.us/dynserv/bc4028183a9f3b118815b5bfd89bec13e4fe1463.VariationFileServ"
-        self.query_url = self.service_url + "/" + "jbrowse_query"
+        # Use service-wizard-url to get the latest version of the VariationFileServ
+        self.sw_url = config['srv-wiz-url']
+        self.shock_url = config['shock-url']
         #END_CONSTRUCTOR
 
 
@@ -175,6 +192,9 @@ class VariationSearchUtil:
         # print (token)
         token = ctx['token']
 
+        #use service wizard to find the latest version of variation file serve url
+        vfs_url =  self.get_variation_service_url(self.sw_url)
+
         ws = WorkspaceClient(url=self.ws_url, token=ctx['token'])
         var_obj = ws.req("get_objects2", {'objects': [{"ref": params['variation_ref']}]})['data'][0]['data']
 
@@ -184,8 +204,11 @@ class VariationSearchUtil:
             raise ValueError("None of the input samples found in variation object. Please choose from:" + " ".join(samples))
 
 
-        url_template, tbi_url_template = self.get_db_urls(var_obj)
+        url_template, tbi_url_template = self.get_db_urls(var_obj, vfs_url)
         formatted_locations = self.format_locations(params)
+
+        print (url_template)
+        print (tbi_url_template)
 
         positions = list()
         refalts = list()

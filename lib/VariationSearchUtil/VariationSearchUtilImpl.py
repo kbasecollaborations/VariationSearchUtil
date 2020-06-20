@@ -33,8 +33,10 @@ class VariationSearchUtil:
 
     #BEGIN_CLASS_HEADER
     def run_cmd(self, cmd):
+        # TODO: Unsafe figure out how to deal with this
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         out, err = p.communicate()
+        out = out.rstrip()
         return out
 
     def get_variation_service_url(self, sw_url):
@@ -104,6 +106,10 @@ class VariationSearchUtil:
                      refalts=[], input_samples=None, variations=list() ):
         contig_id, region = location.split(":")
         start, stop = region.split("-")
+        if (int (start) > int(stop)):
+            # TODO append to an error list and return this
+            return positions, refalts, variations
+
         gv = "/kb/module/deps/get_variants.js"
         cmd = ["node",
                gv,
@@ -114,7 +120,13 @@ class VariationSearchUtil:
                tbi_url_template,
                token
                ]
-        variation_result = self.run_cmd(cmd).decode('ascii').rstrip().split("\n")
+        res = self.run_cmd(cmd).decode('ascii').rstrip()
+        if len(res) ==0:
+            # TODO no snp found. It could be due to bad region, incorrect chromosome etc.
+            # TODO append to an error list and return this
+            return positions, refalts, variations
+
+        variation_result = res.split("\n")
 
         # ###################################IMPORTANT AND CONFUSING##################
         # https://www.biostars.org/p/84686/
@@ -138,7 +150,13 @@ class VariationSearchUtil:
             # so we skip all positions that are less than 1-based index.
             if int(var[1]) < int(actual_start):
                 continue
-            positions.append(var[0] + ":" + var[1])
+            # We are taking multiple regions as input which may have redundant positions
+            # Take care of redundant positions
+            pos = var[0] + ":" + var[1]
+            if pos in positions:
+                continue
+
+            positions.append(pos)
             refalts.append(var[3] + "/" + var[4])
 
             tmp = list()
@@ -150,6 +168,8 @@ class VariationSearchUtil:
             else:
                 tmp.append(var[9:])
             variations.append(tmp)
+
+
         return positions, refalts, variations
 
 
@@ -207,8 +227,8 @@ class VariationSearchUtil:
         url_template, tbi_url_template = self.get_db_urls(var_obj, vfs_url)
         formatted_locations = self.format_locations(params)
 
-        print (url_template)
-        print (tbi_url_template)
+        #print (url_template)
+        #print (tbi_url_template)
 
         positions = list()
         refalts = list()

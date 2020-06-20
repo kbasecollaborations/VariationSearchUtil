@@ -53,21 +53,41 @@ class VariationSearchUtilTest(unittest.TestCase):
             print('Test workspace was deleted')
 
     # NOTE: According to Python unittest naming rules test method names should start from 'test'. # noqa
-    def test_your_method(self):
-        # Prepare test objects in workspace if needed using
-        # self.getWsClient().save_objects({'workspace': self.getWsName(),
-        #                                  'objects': []})
-        #
-        # Run your method by
-        # ret = self.getImpl().your_method(self.getContext(), parameters...)
-        #
-        # Check returned data with
-        # self.assertEqual(ret[...], ...) or other unittest methods
+    def test_good_example(self):
+        # To test request permission to narrative 51264 on ci
+        # TODO remove the hardcoded variation stuff
         params = {
             "variation_ref": "51264/5/1",
             "locations": ["Chr01:52", "Chr01:100-500"],
             "samples":['93-968', 'OSU-418', 'BESC-52']
         }
-
         ret = self.serviceImpl.search_variation(self.ctx, params)
-        print (ret)
+        assert (len(ret[0]['positions']) == 5)
+
+    def test_no_variation(self):
+        # To test request permission to narrative 51264 on ci
+        # TODO remove the hardcoded variation stuff
+        params = {
+            "variation_ref": "51264/5/1",
+            "locations": ["Chr01:1"],
+            "samples":['93-968', 'OSU-418', 'BESC-52xxxx']
+        }
+        ret = self.serviceImpl.search_variation(self.ctx, params)
+        assert (len(ret[0]['positions']) == 0)
+        # only 2 samples found as 3rd sample is not there
+        assert (len(ret[0]['samples']) == 2)
+
+    def test_redundant_regions(self):
+        # To test request permission to narrative 51264 on ci
+        # TODO remove the hardcoded variation stuff
+        params = {
+            "variation_ref": "51264/5/1",
+            "locations": ["Chr01:1"],
+            "samples": ['93-968', 'OSU-418']
+        }
+        ret = self.serviceImpl.search_variation(self.ctx, params)
+        assert (len(ret[0]['positions']) == 0)
+        # only 2 samples found as 3rd sample is not there
+        assert (len(ret[0]['samples']) == 2)
+
+
